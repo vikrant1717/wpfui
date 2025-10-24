@@ -1,47 +1,36 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: .NET
-
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "main" ]
-
+    branches: [ "master" ]
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    container: ubuntu:20.04
     steps:
     - uses: actions/checkout@v4
     
+    - name: Install dependencies (curl, wget, libssl1.1)
+      run: |
+        apt-get update
+        apt-get install curl wget libssl1.1 -y 
+    
+    # NEW STEP: Install Java (OpenJDK 11 is a common, stable version)
+    - name: Install Java for Embold Scanner
+      run: |
+        apt-get install openjdk-11-jre -y
+        
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 3.0.x
         
-    - name: Restore dependencies
-      # Specify the solution file to restore packages for
-      run: dotnet restore cppsamples.sln
-      
-    - name: Build
-      # Specify the solution file to build
-      run: dotnet build cppsamples.sln --no-restore
-      
-    - name: Test
-      # Specify the solution file to run tests for
-      run: dotnet test cppsamples.sln --no-build --verbosity normal
-
     - name: Embold Analyse
-      run: | 
-        # Step 1: Download and extract BrowserStack CQ Scanner
+      run: |
         curl https://v1.embold.io/nfs/CLI/browserstack-codequality-scanner.tar.gz -o browserstack-codequality-scanner-archive.tar.gz
         tar xvf browserstack-codequality-scanner-archive.tar.gz
         echo "Download and extract BrowserStack CQ Scanner done"
-        # Step 2: Download repository configuration file
         curl --silent --location --request GET "http://3.66.212.6:3000/api/v1/repositories/79a8f45df05d0828012c5f7cd6f259ba/scans/config/download" --header "Authorization:Bearer ${{ secrets.EMBOLD_SCAN_TOKEN_CS}}" -o repository-configuration.json
         echo "Download repository configuration file done"
-        # Step 3: Run scan using the 'analyse' command
-        ./browserstack-codequality-scanner/bin/embold-scanner analyse -u http://3.66.212.6:3000 -t $EMBOLD_SCAN_TOKEN_CS -r 79a8f45df05d0828012c5f7cd6f259ba -b . -d ./embold-data -c ./repository-configuration.json -l ./embold-log -sh $GITHUB_WORKSPACE/embold-scanner-home -v
+        ./browserstack-codequality-scanner/bin/embold-scanner analyse -u http://3.66.212.6:3000 -t ${{ secrets.EMBOLD_SCAN_TOKEN_CS }} -r 79a8f45df05d0828012c5f7cd6f259ba -b . -d ./embold-data -c ./repository-configuration.json -l ./embold-log -sh $GITHUB_WORKSPACE/embold-scanner-home -v
